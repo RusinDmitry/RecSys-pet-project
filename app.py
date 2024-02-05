@@ -42,7 +42,7 @@ def get_model_path(path: str, test = 0) -> str:
     return MODEL_PATH
 
 def load_models(test = 0):
-    model_path = get_model_path("./catboost_model_2.pkl",test = test)
+    model_path = get_model_path("Models/catboost_model_2.pkl", test = test)
     model = pickle.load(open(model_path, 'rb')) # пример как можно загружать модели
     return model
 
