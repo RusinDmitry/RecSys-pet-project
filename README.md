@@ -10,3 +10,17 @@ ___
 - table_*.py описание таблиц в виде экзепляров класса
 - schema.py схемы на pydantix
 - Training_model.ipybn обучение моделей
+
+## Запуск
+Для запуска сервиса нужно ввести в терминале
+
+    uvicorn app:app --reload --port 8899 
+
+## Требования
+Сервису необходимы следующие пакеты:
+- python (3.11);
+- fastapi;
+- uvicorn;
+- picke;
+- haslib; 
+- pandas;
