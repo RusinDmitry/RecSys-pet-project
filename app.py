@@ -6,7 +6,6 @@ from fastapi import Depends, FastAPI, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func, create_engine
 
-
 from schema import PostGet, FeedGet, UserGet, Response
 import os
 import pickle
@@ -14,6 +13,7 @@ import pandas as pd
 import hashlib
 
 app = FastAPI()
+
 
 def batch_load_sql(query: str) -> pd.DataFrame:
     CHUNKSIZE = 200000
@@ -28,11 +28,13 @@ def batch_load_sql(query: str) -> pd.DataFrame:
     conn.close()
     return pd.concat(chunks, ignore_index=True)
 
+
 def load_features() -> pd.DataFrame:
     return batch_load_sql('SELECT * FROM rusind899_lesson_22')
 
-def get_model_path(path: str, test = 0) -> str:
-    if os.environ.get("IS_LMS") == "1":  # проверяем где выполняется код в лмс, или локально. Немного магии
+
+def get_model_path(path: str, test=0) -> str:
+    if os.environ.get("IS_LMS") == "1":  # проверяем где выполняется код в лмс, или локально
         if test:
             MODEL_PATH = '/workdir/user_input/model_test'
         else:
@@ -41,10 +43,12 @@ def get_model_path(path: str, test = 0) -> str:
         MODEL_PATH = path
     return MODEL_PATH
 
-def load_models(test = 0):
-    model_path = get_model_path("Models/catboost_model_2.pkl", test = test)
-    model = pickle.load(open(model_path, 'rb')) # пример как можно загружать модели
+
+def load_models(test=0):
+    model_path = get_model_path("Models/catboost_model_2.pkl", test=test)
+    model = pickle.load(open(model_path, 'rb'))
     return model
+
 
 def text_column_processing(X):
     from sklearn.feature_extraction.text import TfidfVectorizer
@@ -58,13 +62,16 @@ def text_column_processing(X):
                                          columns=['PCA_text_1', 'PCA_text_2', 'PCA_text_3'],
                                          index=X['post_id'])
     return PCA_post_text_dataset
+
+
 model_control = load_models()
-model_test = load_models(test = 1)
+model_test = load_models(test=1)
 print("Models loaded!")
 data_feature = load_features()
 df_post = batch_load_sql('SELECT * FROM rusind899_lesson_22_2')
 post_data = batch_load_sql('SELECT * FROM public.post_text_df')
 print("Feature loaded!")
+
 
 def conv(df: pd.DataFrame) -> list:
     ls = []
@@ -73,6 +80,7 @@ def conv(df: pd.DataFrame) -> list:
         ls.append(row.to_dict())
     return ls
 
+
 def get_exp_group(user_id: int) -> str:
     number = int(hashlib.md5((str(user_id) + 'my_salt').encode()).hexdigest(), 16) % 100
     if number > 50:
@@ -80,10 +88,12 @@ def get_exp_group(user_id: int) -> str:
     else:
         return 'control'
 
-@app.get("/post/recommendations/",response_model=Response)
+
+@app.get("/post/recommendations/", response_model=Response)
 def recommended_posts(id: int, limit: int = 10) -> Response:
-    user_tab = data_feature[data_feature['user_id'] == id][['user_id', 'gender', 'age', 'exp_group','country_1.0', 'city_1.0', 'os_iOS',
-           'source_organic','userViews','userMeans']]
+    user_tab = data_feature[data_feature['user_id'] == id][
+        ['user_id', 'gender', 'age', 'exp_group', 'country_1.0', 'city_1.0', 'os_iOS',
+         'source_organic', 'userViews', 'userMeans']]
     df_post['user_id'] = id
     time = datetime.now()
     user_tab['timestamp'] = time
@@ -95,11 +105,13 @@ def recommended_posts(id: int, limit: int = 10) -> Response:
         on='user_id',
         how='left'
     )
-    X = df_test.drop(['user_id', 'timestamp'], axis = 1).rename(columns={"country_1.0": "country_1", "city_1.0": "city_1"})[['post_id', 'hour_of_action', 'gender', 'age', 'exp_group', 'PCA_text_1',
-       'PCA_text_2', 'PCA_text_3', 'country_1', 'city_1', 'os_iOS',
-       'source_organic', 'topic_covid', 'topic_entertainment', 'topic_movie',
-       'topic_politics', 'topic_sport', 'topic_tech', 'userViews',
-       'userMeans']]
+    X = \
+    df_test.drop(['user_id', 'timestamp'], axis=1).rename(columns={"country_1.0": "country_1", "city_1.0": "city_1"})[
+        ['post_id', 'hour_of_action', 'gender', 'age', 'exp_group', 'PCA_text_1',
+         'PCA_text_2', 'PCA_text_3', 'country_1', 'city_1', 'os_iOS',
+         'source_organic', 'topic_covid', 'topic_entertainment', 'topic_movie',
+         'topic_politics', 'topic_sport', 'topic_tech', 'userViews',
+         'userMeans']]
     exp_group = get_exp_group(df_test['user_id'][0])
     if exp_group == 'control':
         preds = model_control.predict(X)
